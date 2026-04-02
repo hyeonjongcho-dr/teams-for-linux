@@ -103,6 +103,9 @@ class BrowserWindowManager {
         contextIsolation: false,  // Required for ReactHandler DOM access
         nodeIntegration: false,   // Secure: preload scripts don't need this
         sandbox: false,           // Required for system API access
+        additionalArguments: this.config.emulateMacNativeClient
+          ? ["--emulate-mac-native-client"]
+          : [],
       },
     });
   }

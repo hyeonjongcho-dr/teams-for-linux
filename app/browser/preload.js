@@ -1,6 +1,28 @@
 const { ipcRenderer } = require("electron");
 
-// Note: IPC validation handled by main process, no need for duplicate validation here
+if (process.argv.includes("--emulate-mac-native-client")) {
+  require("./tools/teamsNativeBridge").init();
+  const { MAC_TEAMS_JS_UA, USER_AGENT_DATA_BRANDS } = require("../config/macTeamsConstants");
+  Object.defineProperty(Navigator.prototype, "userAgent", { get: () => MAC_TEAMS_JS_UA });
+  Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" });
+  Object.defineProperty(Navigator.prototype, "userAgentData", {
+    get: () => ({
+      brands: USER_AGENT_DATA_BRANDS,
+      platform: "macOS",
+      mobile: false,
+      getHighEntropyValues: async () => ({
+        architecture: "x86", bitness: "64", platform: "macOS",
+        platformVersion: "10.15.7",
+        fullVersionList: [
+          { brand: "Microsoft Edge", version: "145.0.3800.82" },
+          { brand: "Not/A)Brand", version: "8.0.0.0" },
+          { brand: "Chromium", version: "145.0.7049.52" },
+        ],
+      }),
+    }),
+  });
+}
+
 globalThis.electronAPI = {
   desktopCapture: {
     chooseDesktopMedia: (sources, cb) => {

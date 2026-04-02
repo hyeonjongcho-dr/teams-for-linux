@@ -1,4 +1,5 @@
 const { ipcMain, net, powerMonitor } = require("electron");
+const { MAC_TEAMS_HTTP_UA, MAC_TEAMS_URL } = require("../config/macTeamsConstants");
 
 let _ConnectionManager_window = new WeakMap();
 let _ConnectionManager_config = new WeakMap();
@@ -28,7 +29,8 @@ class ConnectionManager {
 
     _ConnectionManager_window.set(this, options.window);
     _ConnectionManager_config.set(this, options.config);
-    _ConnectionManager_currentUrl.set(this, url || this.config.url);
+    const defaultUrl = this.config.emulateMacNativeClient ? MAC_TEAMS_URL : this.config.url;
+    _ConnectionManager_currentUrl.set(this, url || defaultUrl);
     _ConnectionManager_isRefreshing.set(this, false);
     _ConnectionManager_refreshTimeout.set(this, null);
 
@@ -128,8 +130,11 @@ class ConnectionManager {
         } else {
           console.debug("Loading initial URL...");
           try {
+            const effectiveUA = this.config.emulateMacNativeClient
+              ? MAC_TEAMS_HTTP_UA
+              : this.config.chromeUserAgent;
             await this.window.loadURL(this.currentUrl, {
-              userAgent: this.config.chromeUserAgent,
+              userAgent: effectiveUA,
             });
           } catch (err) {
             console.error(`[CONNECTION] Failed to load URL: ${err.message}`);

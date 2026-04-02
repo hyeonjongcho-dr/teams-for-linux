@@ -318,6 +318,12 @@ function extractYargConfig(configObject, appVersion) {
         describe: "Electron CLI flags",
         type: "array",
       },
+      emulateMacNativeClient: {
+        default: true,
+        describe:
+          "Emulate Mac Teams 2 native desktop client. Spoofs User-Agent, platform, Sec-CH-UA headers, and injects native bridge stubs so the server treats this as a native app.",
+        type: "boolean",
+      },
       emulateWinChromiumPlatform: {
         default: false,
         describe:
