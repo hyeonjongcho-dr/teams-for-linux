@@ -452,6 +452,13 @@ module.exports = {
         applyMode: "restart",
         deprecated: "use performance.electronCLIFlags instead",
       },
+      emulateMacNativeClient: {
+        default: true,
+        describe:
+          "Emulate Mac Teams 2 native desktop client. Spoofs User-Agent, platform, Sec-CH-UA headers, and injects native bridge stubs so the server treats this as a native app.",
+        type: "boolean",
+        applyMode: "restart",
+      },
       emulateWinChromiumPlatform: {
         default: false,
         describe:

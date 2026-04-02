@@ -24,6 +24,14 @@ const deepLinkRouter = require("./deepLinkRouter");
 const os = require("node:os");
 const path = require("node:path");
 const { installProfileWindowOpenHandler } = require("./profileWindowOpenPolicy");
+const {
+  MAC_TEAMS_HTTP_UA,
+  MAC_TEAMS_URL,
+  SEC_CH_UA,
+  SEC_CH_UA_FULL_VERSION_LIST,
+  SEC_CH_UA_PLATFORM,
+  SEC_CH_UA_MOBILE,
+} = require("../config/macTeamsConstants");
 
 const DEFAULT_SCREEN_SHARING_THUMBNAIL_CONFIG = {
   enabled: true,
@@ -50,6 +58,14 @@ let connectionManager = null;
 let menus = null;
 
 const isMac = os.platform() === "darwin";
+
+function getEffectiveUA(cfg) {
+  return cfg.emulateMacNativeClient ? MAC_TEAMS_HTTP_UA : cfg.chromeUserAgent;
+}
+
+function getEffectiveUrl(cfg) {
+  return cfg.emulateMacNativeClient ? MAC_TEAMS_URL : cfg.url;
+}
 
 function setupScreenSharing(selectedSource) {
   screenSharingService.setSelectedSource(selectedSource);
@@ -669,7 +685,7 @@ async function triggerAuthRecovery() {
   await cleanExpiredAuthCookies(window.webContents.session, true);
 
   console.info('[AUTH_RECOVERY] Reloading for fresh auth...');
-  window.loadURL(config.url, { userAgent: config.chromeUserAgent });
+  window.loadURL(getEffectiveUrl(config), { userAgent: getEffectiveUA(config) });
 }
 
 exports.onAppReady = async function onAppReady(configGroup, customBackground, sharingService, profilesManager = null) {
@@ -926,14 +942,18 @@ exports.onAppSecondInstance = function onAppSecondInstance(event, args) {
  * @param {string} url - Deep link URL resolved from the launch argument
  */
 async function openDeepLink(url) {
-  const routed = await deepLinkRouter.navigateInPage(window, url, config.url);
+  const routed = await deepLinkRouter.navigateInPage(
+    window,
+    url,
+    getEffectiveUrl(config)
+  );
   if (routed) {
     console.debug("[DEEPLINK] routed in page");
     return;
   }
 
   console.debug("[DEEPLINK] in-page routing unavailable, reloading");
-  await window.loadURL(url, { userAgent: config.chromeUserAgent });
+  await window.loadURL(url, { userAgent: getEffectiveUA(config) });
 }
 
 function applyAppConfiguration(config, window) {
@@ -953,7 +973,7 @@ function applyAppConfiguration(config, window) {
       }
     );
   }
-  window.webContents.setUserAgent(config.chromeUserAgent);
+  window.webContents.setUserAgent(getEffectiveUA(config));
 
   if (!config.minimized) {
     window.show();
@@ -1102,7 +1122,7 @@ function processArgs(args) {
     if (v1msTeams.test(arg)) {
       console.debug("A url argument received with msteams v1 protocol");
       window.show();
-      return config.url + arg.substring(8, arg.length);
+      return getEffectiveUrl(config) + arg.substring(8, arg.length);
     }
     if (v2msTeams.test(arg)) {
       console.debug("A url argument received with msteams v2 protocol");
@@ -1281,6 +1301,14 @@ function onHeadersReceivedHandler(details, callback) {
 }
 
 function onBeforeSendHeadersHandler(detail, callback) {
+  if (config.emulateMacNativeClient) {
+    detail.requestHeaders["Sec-CH-UA"] = SEC_CH_UA;
+    detail.requestHeaders["Sec-CH-UA-Mobile"] = SEC_CH_UA_MOBILE;
+    detail.requestHeaders["Sec-CH-UA-Platform"] = SEC_CH_UA_PLATFORM;
+    detail.requestHeaders["Sec-CH-UA-Full-Version-List"] =
+      SEC_CH_UA_FULL_VERSION_LIST;
+  }
+
   if (intune?.isSsoUrl(detail.url)) {
     intune.addSsoCookie(detail, callback);
   } else {
@@ -1312,7 +1340,7 @@ function onNewWindow(details) {
 
   if (new RegExp(config.meetupJoinRegEx).test(details.url)) {
     if (config.onNewWindowOpenMeetupJoinUrlInApp) {
-      window.loadURL(details.url, { userAgent: config.chromeUserAgent });
+      window.loadURL(details.url, { userAgent: getEffectiveUA(config) });
     }
     return { action: "deny" };
   } else if (
@@ -1321,6 +1349,14 @@ function onNewWindow(details) {
   ) {
     aboutBlankRequestCount += 1;
     return { action: "deny" };
+  } else if (details.url.startsWith("about:blank?")) {
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {
+        show: false,
+        parent: window,
+      },
+    };
   } else if (isAuthLoginUrl(details.url) && shouldInterceptAuthPopup()) {
     // Teams is opening a direct-URL Microsoft login popup from a session
     // that recently emitted auth-failure signals (see

@@ -1,4 +1,8 @@
 const { ipcMain, net, powerMonitor } = require("electron");
+const {
+  MAC_TEAMS_HTTP_UA,
+  MAC_TEAMS_URL,
+} = require("../config/macTeamsConstants");
 
 // Debounce window for rapid network change events before refreshing
 const REFRESH_DEBOUNCE_MS = 1000;
@@ -36,7 +40,10 @@ class ConnectionManager {
 
     _ConnectionManager_window.set(this, options.window);
     _ConnectionManager_config.set(this, options.config);
-    _ConnectionManager_currentUrl.set(this, url || this.config.url);
+    const defaultUrl = this.config.emulateMacNativeClient
+      ? MAC_TEAMS_URL
+      : this.config.url;
+    _ConnectionManager_currentUrl.set(this, url || defaultUrl);
     _ConnectionManager_isRefreshing.set(this, false);
     _ConnectionManager_refreshTimeout.set(this, null);
     _ConnectionManager_needsReload.set(this, false);
@@ -151,9 +158,10 @@ class ConnectionManager {
         this.window.reload();
       } else {
         console.debug("Loading initial URL...");
-        await this.window.loadURL(this.currentUrl, {
-          userAgent: this.config.chromeUserAgent,
-        });
+        const effectiveUA = this.config.emulateMacNativeClient
+          ? MAC_TEAMS_HTTP_UA
+          : this.config.chromeUserAgent;
+        await this.window.loadURL(this.currentUrl, { userAgent: effectiveUA });
       }
     } catch (err) {
       console.error(`[CONNECTION] Failed to load page: ${err.message}`);
