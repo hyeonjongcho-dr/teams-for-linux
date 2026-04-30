@@ -15,6 +15,10 @@ const SEC_CH_UA_FULL_VERSION_LIST =
   '"Microsoft Edge";v="145.0.3800.82", "Not/A)Brand";v="8.0.0.0", "Chromium";v="145.0.7049.52"';
 const SEC_CH_UA_PLATFORM = '"macOS"';
 const SEC_CH_UA_MOBILE = "?0";
+const SEC_CH_UA_PLATFORM_VERSION = '"10.15.7"';
+const SEC_CH_UA_ARCH = '"x86"';
+const SEC_CH_UA_BITNESS = '"64"';
+const SEC_CH_UA_MODEL = '""';
 
 const USER_AGENT_DATA_BRANDS = [
   { brand: "Microsoft Edge", version: "145" },
@@ -33,5 +37,9 @@ module.exports = {
   SEC_CH_UA_FULL_VERSION_LIST,
   SEC_CH_UA_PLATFORM,
   SEC_CH_UA_MOBILE,
+  SEC_CH_UA_PLATFORM_VERSION,
+  SEC_CH_UA_ARCH,
+  SEC_CH_UA_BITNESS,
+  SEC_CH_UA_MODEL,
   USER_AGENT_DATA_BRANDS,
 };

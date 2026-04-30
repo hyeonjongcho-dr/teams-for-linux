@@ -27,6 +27,10 @@ const {
   SEC_CH_UA_FULL_VERSION_LIST,
   SEC_CH_UA_PLATFORM,
   SEC_CH_UA_MOBILE,
+  SEC_CH_UA_PLATFORM_VERSION,
+  SEC_CH_UA_ARCH,
+  SEC_CH_UA_BITNESS,
+  SEC_CH_UA_MODEL,
 } = require("../config/macTeamsConstants");
 
 // Default configuration for the screen sharing thumbnail preview (avoid magic values)
@@ -410,6 +414,7 @@ exports.onAppReady = async function onAppReady(configGroup, customBackground, sh
 
   window = await browserWindowManager.createWindow();
   streamSelector = new StreamSelector(window);
+  setupDownloadHandler(window);
 
   // Restrict WebRTC ICE candidate gathering to the interface with the default
   // route, preventing secondary interfaces (e.g. an ethernet adapter with no
@@ -789,12 +794,66 @@ function onHeadersReceivedHandler(details, callback) {
   });
 }
 
+/**
+ * Registers a will-download handler on the window's session to capture download
+ * events for diagnostics. Preserves default save dialog behavior — does NOT call
+ * event.preventDefault(), so the user still sees the native save-as dialog.
+ *
+ * Only PII-safe fields are logged: URL hostname, MIME type, and byte counts.
+ * File names and save paths are never logged.
+ *
+ * @param {Electron.BrowserWindow} win - The BrowserWindow whose session to monitor
+ */
+function setupDownloadHandler(win) {
+  win.webContents.session.on('will-download', (event, item) => {
+    let hostname = 'unknown';
+    try {
+      hostname = new URL(item.getURL()).hostname;
+    } catch {
+      // URL parse failed — keep 'unknown', do not log the raw URL
+    }
+
+    console.info('[DOWNLOAD] Download started', {
+      hostname,
+      mimeType: item.getMimeType(),
+      totalBytes: item.getTotalBytes(),
+    });
+
+    item.on('updated', (_evt, state) => {
+      if (state === 'interrupted') {
+        console.warn('[DOWNLOAD] Download interrupted', {
+          receivedBytes: item.getReceivedBytes(),
+          totalBytes: item.getTotalBytes(),
+        });
+      } else if (state === 'progressing') {
+        console.debug('[DOWNLOAD] Download progressing', {
+          receivedBytes: item.getReceivedBytes(),
+          totalBytes: item.getTotalBytes(),
+        });
+      }
+    });
+
+    item.once('done', (_evt, state) => {
+      const success = state === 'completed';
+      if (success) {
+        console.info('[DOWNLOAD] Download completed', { state });
+      } else {
+        console.warn('[DOWNLOAD] Download ended with non-success state', { state });
+      }
+    });
+  });
+}
+
 function onBeforeSendHeadersHandler(detail, callback) {
   if (config.emulateMacNativeClient) {
     detail.requestHeaders["Sec-CH-UA"] = SEC_CH_UA;
     detail.requestHeaders["Sec-CH-UA-Mobile"] = SEC_CH_UA_MOBILE;
     detail.requestHeaders["Sec-CH-UA-Platform"] = SEC_CH_UA_PLATFORM;
     detail.requestHeaders["Sec-CH-UA-Full-Version-List"] = SEC_CH_UA_FULL_VERSION_LIST;
+    detail.requestHeaders["Sec-CH-UA-Platform-Version"] = SEC_CH_UA_PLATFORM_VERSION;
+    detail.requestHeaders["Sec-CH-UA-Arch"] = SEC_CH_UA_ARCH;
+    detail.requestHeaders["Sec-CH-UA-Bitness"] = SEC_CH_UA_BITNESS;
+    detail.requestHeaders["Sec-CH-UA-Model"] = SEC_CH_UA_MODEL;
   }
 
   if (intune?.isSsoUrl(detail.url)) {
